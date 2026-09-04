@@ -1169,6 +1169,12 @@ That is the core of this AI Commerce Agent.
 
 ---
 
+## Live Demo
+
+https://ai-commerce-agent-psi.vercel.app/
+
+---
+
 ## License
 
 Copyright (c) 2026 Shreya Gupta. All rights reserved.
