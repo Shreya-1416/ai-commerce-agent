@@ -18,7 +18,7 @@ const createPayment = async ({ orderId }) => {
       };
     }
 
-    // Payment should only be created for pending orders
+    // Payment can only be created for pending orders
     if (order.status !== "pending") {
       return {
         success: false,
@@ -26,9 +26,15 @@ const createPayment = async ({ orderId }) => {
       };
     }
 
+    // Frontend URL:
+    // Production → FRONTEND_URL from Render
+    // Local development → http://localhost:5173
+    const frontendUrl =
+      process.env.FRONTEND_URL || "http://localhost:5173";
+
     /*
-     * If a Razorpay order already exists for this merchant order,
-     * reuse it instead of creating another Razorpay order.
+     * If a Razorpay order already exists,
+     * reuse it instead of creating another one.
      */
     if (order.razorpayOrderId) {
       return {
@@ -39,12 +45,15 @@ const createPayment = async ({ orderId }) => {
         currency: "INR",
 
         checkoutUrl:
-          `http://localhost:5173/checkout` +
+          `${frontendUrl}/checkout` +
           `?orderId=${encodeURIComponent(order._id.toString())}` +
-          `&razorpayOrderId=${encodeURIComponent(order.razorpayOrderId)}` +
+          `&razorpayOrderId=${encodeURIComponent(
+            order.razorpayOrderId
+          )}` +
           `&amount=${encodeURIComponent(order.totalAmount)}`,
 
-        message: "Payment order already exists. Customer can proceed to checkout.",
+        message:
+          "Payment order already exists. Customer can proceed to checkout.",
       };
     }
 
@@ -60,7 +69,7 @@ const createPayment = async ({ orderId }) => {
 
     await order.save();
 
-    // Return everything required by frontend
+    // Return payment information to frontend
     return {
       success: true,
 
@@ -73,12 +82,15 @@ const createPayment = async ({ orderId }) => {
       currency: "INR",
 
       checkoutUrl:
-        `http://localhost:5173/checkout` +
+        `${frontendUrl}/checkout` +
         `?orderId=${encodeURIComponent(order._id.toString())}` +
-        `&razorpayOrderId=${encodeURIComponent(razorpayOrder.id)}` +
+        `&razorpayOrderId=${encodeURIComponent(
+          razorpayOrder.id
+        )}` +
         `&amount=${encodeURIComponent(order.totalAmount)}`,
 
-      message: "Payment order created. Customer can proceed to checkout.",
+      message:
+        "Payment order created. Customer can proceed to checkout.",
     };
   } catch (error) {
     console.error("Create payment error:", error);
