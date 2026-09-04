@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Checkout from "./pages/Checkout";
 import { useState } from "react";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://ai-commerce-agent-server.onrender.com";
 
 function Home() {
   const [message, setMessage] = useState("");
