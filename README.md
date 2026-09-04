@@ -1166,3 +1166,19 @@ Before presenting:
 > **AI understands → AI acts → Customer approves → Backend verifies.**
 
 That is the core of this AI Commerce Agent.
+
+---
+
+## License
+
+Copyright (c) 2026 Shreya Gupta. All rights reserved.
+
+This project is publicly available for viewing, learning, and evaluation.
+
+You may clone this repository for personal learning or evaluation, provided
+that the original attribution is retained.
+
+You may not claim this project or substantial portions of its source code,
+architecture, documentation, or original assets as your own work, redistribute
+it, publish it as your own project, or use it commercially without prior
+written permission from the author.
