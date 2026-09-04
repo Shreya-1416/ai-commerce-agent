@@ -50,7 +50,7 @@ function Checkout() {
             console.log("Razorpay response:", response);
 
             const verifyResponse = await fetch(
-              "http://localhost:5000/api/orders/payment/verify",
+              `${import.meta.env.VITE_API_URL}/api/orders/payment/verify`,
               {
                 method: "POST",
                 headers: {
