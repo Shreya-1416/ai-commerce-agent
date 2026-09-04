@@ -8,15 +8,26 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// =====================================================
+// CREATE RAZORPAY PAYMENT ORDER
+// =====================================================
+
 const createPaymentOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
 
     console.log("Received orderId:", orderId);
 
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId is required",
+      });
+    }
+
     const order = await Order.findById(orderId);
 
-console.log("Found order:", order);
+    console.log("Found order:", order);
 
     if (!order) {
       return res.status(404).json({
@@ -28,33 +39,71 @@ console.log("Found order:", order);
     if (order.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message: "Order is not pending",
+        message: `Order is ${order.status}`,
       });
     }
 
+    // If Razorpay order already exists, don't create another one
+    if (order.razorpayOrderId) {
+      return res.json({
+        success: true,
+        message: "Razorpay order already exists",
+        razorpayOrderId: order.razorpayOrderId,
+        orderId: order._id.toString(),
+        amount: order.totalAmount,
+        currency: "INR",
+      });
+    }
+
+    // Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
-      amount: order.totalAmount * 100,
+      amount: Math.round(order.totalAmount * 100),
       currency: "INR",
       receipt: order._id.toString(),
     });
 
+    // Save Razorpay order ID
     order.razorpayOrderId = razorpayOrder.id;
 
     await order.save();
 
-    res.json({
+    console.log(
+      "Razorpay order created:",
+      razorpayOrder.id
+    );
+
+    return res.json({
       success: true,
+
+      message: "Razorpay payment order created",
+
+      orderId: order._id.toString(),
+
+      razorpayOrderId: razorpayOrder.id,
+
+      amount: order.totalAmount,
+
+      currency: "INR",
+
       razorpayOrder,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Create payment order error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+
+// =====================================================
+// VERIFY RAZORPAY PAYMENT
+// =====================================================
 
 const verifyPayment = async (req, res) => {
   try {
@@ -65,6 +114,13 @@ const verifyPayment = async (req, res) => {
       razorpay_signature,
     } = req.body;
 
+    console.log("Payment verification request:", {
+      orderId,
+      razorpay_order_id,
+      razorpay_payment_id,
+    });
+
+    // Validate request
     if (
       !orderId ||
       !razorpay_order_id ||
@@ -77,6 +133,7 @@ const verifyPayment = async (req, res) => {
       });
     }
 
+    // Find our MongoDB order
     const order = await Order.findById(orderId);
 
     if (!order) {
@@ -86,47 +143,72 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // Make sure the Razorpay order belongs to our order
-    if (order.razorpayOrderId !== razorpay_order_id) {
+    // Make sure Razorpay order belongs to our order
+    if (
+      order.razorpayOrderId !== razorpay_order_id
+    ) {
       return res.status(400).json({
         success: false,
         message: "Razorpay order mismatch",
       });
     }
 
+    // Generate signature
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_KEY_SECRET
+      )
       .update(
         `${razorpay_order_id}|${razorpay_payment_id}`
       )
       .digest("hex");
 
-    if (generatedSignature !== razorpay_signature) {
+    // Compare signatures
+    if (
+      generatedSignature !== razorpay_signature
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid payment signature",
       });
     }
 
+    // Payment verified
     order.status = "paid";
     order.paymentId = razorpay_payment_id;
 
     await order.save();
 
-    res.json({
+    console.log(
+      "Payment verified successfully:",
+      razorpay_payment_id
+    );
+
+    return res.json({
       success: true,
+
       message: "Payment verified successfully",
+
       order,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Payment verification error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+
+// =====================================================
+// CREATE MERCHANT ORDER
+// =====================================================
 
 const createOrder = async (req, res) => {
   try {
@@ -139,9 +221,10 @@ const createOrder = async (req, res) => {
       });
     }
 
-    const cart = await Cart.findOne({ sessionId }).populate(
-      "items.product"
-    );
+    // Find customer's cart
+    const cart = await Cart.findOne({
+      sessionId,
+    }).populate("items.product");
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
@@ -150,6 +233,7 @@ const createOrder = async (req, res) => {
       });
     }
 
+    // Convert cart items into order items
     const orderItems = cart.items.map((item) => ({
       product: item.product._id,
       name: item.product.name,
@@ -157,25 +241,46 @@ const createOrder = async (req, res) => {
       price: item.price,
     }));
 
+    // Create pending order
     const order = await Order.create({
       sessionId,
+
       items: orderItems,
+
       totalAmount: cart.totalAmount,
+
       status: "pending",
     });
 
-    res.status(201).json({
+    console.log(
+      "Merchant order created:",
+      order._id.toString()
+    );
+
+    return res.status(201).json({
       success: true,
+
       message: "Order created successfully",
+
       order,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      "Create order error:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = {
   createOrder,

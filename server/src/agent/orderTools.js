@@ -9,25 +9,43 @@ const getPendingOrder = async ({ sessionId }) => {
   if (!order) {
     return {
       success: false,
-      message: "No pending order found.",
+      message: "No pending order found",
     };
   }
 
   return {
     success: true,
-    order: {
-      orderId: order._id.toString(),
-      totalAmount: order.totalAmount,
-      status: order.status,
-      items: order.items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-    },
+    orderId: order._id.toString(),
+    totalAmount: order.totalAmount,
+    status: order.status,
+    razorpayOrderId: order.razorpayOrderId || null,
+    paymentId: order.paymentId || null,
+  };
+};
+
+// NEW
+const getOrderStatus = async ({ sessionId }) => {
+  const order = await Order.findOne({ sessionId })
+    .sort({ createdAt: -1 });
+
+  if (!order) {
+    return {
+      success: false,
+      message: "No order found",
+    };
+  }
+
+  return {
+    success: true,
+    orderId: order._id.toString(),
+    totalAmount: order.totalAmount,
+    status: order.status,
+    razorpayOrderId: order.razorpayOrderId || null,
+    paymentId: order.paymentId || null,
   };
 };
 
 module.exports = {
   getPendingOrder,
+  getOrderStatus,
 };

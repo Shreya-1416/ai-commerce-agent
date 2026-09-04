@@ -58,7 +58,6 @@ const addToCart = async (req, res) => {
     );
 
     await cart.save();
-
     await cart.populate("items.product");
 
     res.status(200).json({
@@ -102,7 +101,47 @@ const getCart = async (req, res) => {
   }
 };
 
+// NEW
+const clearCart = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: "sessionId is required",
+      });
+    }
+
+    const cart = await Cart.findOne({ sessionId });
+
+    if (!cart) {
+      return res.json({
+        success: true,
+        message: "Cart is already empty",
+      });
+    }
+
+    cart.items = [];
+    cart.totalAmount = 0;
+
+    await cart.save();
+
+    res.json({
+      success: true,
+      message: "Cart cleared successfully",
+      cart,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   addToCart,
   getCart,
+  clearCart,
 };

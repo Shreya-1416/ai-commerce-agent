@@ -10,6 +10,7 @@ const searchProducts = async ({ query, maxPrice }) => {
       { name: { $regex: query, $options: "i" } },
       { description: { $regex: query, $options: "i" } },
       { category: { $regex: query, $options: "i" } },
+      { tags: { $regex: query, $options: "i" } },
     ];
   }
 
@@ -117,6 +118,87 @@ const addToCart = async ({ sessionId, productId, quantity = 1 }) => {
   };
 };
 
+const getCart = async ({ sessionId }) => {
+  const cart = await Cart.findOne({ sessionId }).populate("items.product");
+
+  if (!cart || cart.items.length === 0) {
+    return {
+      success: true,
+      message: "Cart is empty",
+      items: [],
+      totalAmount: 0,
+    };
+  }
+
+  return {
+    success: true,
+    items: cart.items.map((item) => ({
+      productId: item.product._id.toString(),
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.price,
+      subtotal: item.price * item.quantity,
+    })),
+    totalAmount: cart.totalAmount,
+  };
+};
+
+
+const removeFromCart = async ({
+  sessionId,
+  productId,
+  quantity = 1,
+}) => {
+  const cart = await Cart.findOne({ sessionId });
+
+  if (!cart) {
+    return {
+      success: false,
+      message: "Cart not found",
+    };
+  }
+
+  const itemIndex = cart.items.findIndex(
+    (item) => item.product.toString() === productId
+  );
+
+  if (itemIndex === -1) {
+    return {
+      success: false,
+      message: "Product is not in the cart",
+    };
+  }
+
+  const item = cart.items[itemIndex];
+
+  if (quantity >= item.quantity) {
+    cart.items.splice(itemIndex, 1);
+  } else {
+    item.quantity -= quantity;
+  }
+
+  cart.totalAmount = cart.items.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+
+  await cart.save();
+
+  return {
+    success: true,
+    message:
+      quantity >= item.quantity
+        ? "Product removed from cart"
+        : `${quantity} quantity removed from cart`,
+    items: cart.items.map((item) => ({
+      productId: item.product.toString(),
+      quantity: item.quantity,
+      price: item.price,
+      subtotal: item.price * item.quantity,
+    })),
+    totalAmount: cart.totalAmount,
+  };
+};
 
 const createOrder = async ({ sessionId }) => {
   const cart = await Cart.findOne({ sessionId }).populate(
@@ -159,4 +241,6 @@ module.exports = {
   getProduct,
   addToCart,
   createOrder,
+  getCart,
+  removeFromCart,
 };
